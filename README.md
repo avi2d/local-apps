@@ -1,8 +1,8 @@
 # local-apps
 
-local-apps keeps one list of the apps running on your own machines.
-Each entry names the app, the machine it runs on, its port, its owner and whether it answers.
-It is for people and agents who start demo apps on more than one machine and need a link that still works.
+local-apps is a registry of apps running across several machines.
+The repository holds the project setup and no registry code yet.
+The aim is one list where each entry names the app, the machine, the port, the owner and whether it answers.
 
 ## Before you begin
 
