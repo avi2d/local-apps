@@ -1,6 +1,7 @@
 # Project agent memory
 
 `README.md` holds what a person reads.
+`VISION.md` says whether a change belongs, so read it before you add scope.
 
 ## Repository setup
 
