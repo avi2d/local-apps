@@ -1,7 +1,5 @@
 # Project agent memory
 
-local-apps is a registry of apps running across several machines.
-The repository holds the project setup and no registry code yet.
 `README.md` holds what a person reads.
 
 ## Repository setup
