@@ -1,3 +1,4 @@
+import * as Path from "node:path";
 import { BunHttpServer } from "@effect/platform-bun";
 import { Clock, Context, Effect, FileSystem, Layer, Option, Redacted, Ref, Result, Schedule, Schema, SynchronizedRef } from "effect";
 import { HttpRouter, HttpServerRequest, HttpServerResponse } from "effect/http";
@@ -16,7 +17,6 @@ import {
   viewOf,
 } from "./domain";
 
-// Three missed reports at the agent's pace, so one slow tick does not flip a machine to unknown.
 const staleAfterMs = 15_000;
 
 class RegistryError extends Schema.TaggedError<RegistryError>()("RegistryError", {
@@ -26,12 +26,20 @@ class RegistryError extends Schema.TaggedError<RegistryError>()("RegistryError",
 const Stored = Schema.fromJsonString(Schema.Array(Registration));
 const decodeStored = Schema.decodeUnknownEffect(Stored);
 
+const OwnerQuery = Schema.Struct({
+  machine: Schema.optionalKey(Schema.NonEmptyString),
+  ownerPid: Schema.optionalKey(Schema.String),
+});
+
 class Registry extends Context.Service<
   Registry,
   {
     readonly list: Effect.Effect<AppList>;
     add(registration: Registration): Effect.Effect<{ readonly added: boolean; readonly view: AppView }, Refused | RegistryError>;
-    remove(name: string): Effect.Effect<Option.Option<Registration>, RegistryError>;
+    remove(
+      name: string,
+      expected?: { readonly machine: string; readonly ownerPid: number },
+    ): Effect.Effect<Option.Option<Registration>, RegistryError | Refused>;
     report(machine: string, report: MachineReport): Effect.Effect<ReadonlyArray<Registration>>;
   }
 >()("local-apps/Registry") {
@@ -51,11 +59,12 @@ class Registry extends Context.Service<
       const entries = yield* SynchronizedRef.make<ReadonlyArray<Registration>>(initial);
       const seen = yield* Ref.make<ReadonlyMap<string, MachineSeen>>(new Map());
 
-      // Written beside the file and renamed over it, so a crash never leaves half a list.
       const save = (next: ReadonlyArray<Registration>) =>
-        fs
-          .writeFileString(`${stateFile}.tmp`, `${JSON.stringify(next, null, 2)}\n`)
-          .pipe(Effect.andThen(fs.rename(`${stateFile}.tmp`, stateFile)), Effect.mapError(failed("write")));
+        fs.makeDirectory(Path.dirname(stateFile), { recursive: true }).pipe(
+          Effect.andThen(fs.writeFileString(`${stateFile}.tmp`, `${JSON.stringify(next, null, 2)}\n`)),
+          Effect.andThen(fs.rename(`${stateFile}.tmp`, stateFile)),
+          Effect.mapError(failed("write")),
+        );
 
       const view = (registration: Registration) =>
         Effect.gen(function* () {
@@ -85,14 +94,19 @@ class Registry extends Context.Service<
         return { added, view: yield* view(registration) };
       });
 
-      const remove = Effect.fn("Registry.remove")(function* (name: string) {
-        return yield* SynchronizedRef.modifyEffect(entries, (current) => {
-          const found = current.find((entry) => entry.name === name);
-          if (found === undefined) return Effect.succeed([Option.none<Registration>(), current] as const);
-          const next = current.filter((entry) => entry.name !== name);
-          return save(next).pipe(Effect.as([Option.some(found), next] as const));
-        });
-      });
+      const remove = Effect.fn("Registry.remove")(
+        function* (name: string, expected?: { readonly machine: string; readonly ownerPid: number }) {
+          return yield* SynchronizedRef.modifyEffect(entries, (current) => {
+            const found = current.find((entry) => entry.name === name);
+            if (found === undefined) return Effect.succeed([Option.none<Registration>(), current] as const);
+            if (expected !== undefined && (found.machine !== expected.machine || found.ownerPid !== expected.ownerPid)) {
+              return Effect.fail(new Refused({ reason: `${name} is now registered with a different owner` }));
+            }
+            const next = current.filter((entry) => entry.name !== name);
+            return save(next).pipe(Effect.as([Option.some(found), next] as const));
+          });
+        },
+      );
 
       const report = Effect.fn("Registry.report")(function* (machine: string, machineReport: MachineReport) {
         const at = yield* Clock.currentTimeMillis;
@@ -166,9 +180,22 @@ const routes = Layer.unwrap(
         "/apps/:name",
         guarded(
           token,
-          HttpRouter.params.pipe(
-            Effect.flatMap(({ name }) => registry.remove(name ?? "")),
-            Effect.map(Option.match({ onNone: () => refuse("no app has that name", 404), onSome: (found) => reply(found, 200) })),
+          Effect.all([HttpRouter.params, HttpServerRequest.schemaSearchParams(OwnerQuery)]).pipe(
+            Effect.flatMap(([{ name }, query]) => {
+              if (query.machine === undefined && query.ownerPid === undefined) return registry.remove(name ?? "");
+              if (query.machine === undefined || query.ownerPid === undefined) {
+                return Effect.fail(new Error("send both machine and ownerPid, or neither"));
+              }
+              const ownerPid = Number(query.ownerPid);
+              if (!Number.isInteger(ownerPid) || ownerPid <= 0) {
+                return Effect.fail(new Error("ownerPid is not a positive integer"));
+              }
+              return registry.remove(name ?? "", { machine: query.machine, ownerPid });
+            }),
+            Effect.map(
+              Option.match({ onNone: () => refuse("no app has that name", 404), onSome: (found) => reply(found, 200) }),
+            ),
+            Effect.catchTag("Refused", ({ reason }) => Effect.succeed(refuse(reason, 409))),
           ),
         ),
       ),
@@ -187,7 +214,6 @@ const routes = Layer.unwrap(
   }),
 );
 
-// The registry routes itself through the gateway while it runs, and takes that route down when it stops.
 const hubRoute = (port: number) =>
   Effect.gen(function* () {
     const frpc = yield* Frpc;

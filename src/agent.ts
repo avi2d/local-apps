@@ -56,9 +56,10 @@ export const runAgent = Effect.gen(function* () {
       .join(" ");
 
   const cleanUp = (registration: Registration, why: string) =>
-    frpc.remove(registration.name).pipe(
-      Effect.andThen(hub.remove(registration.name)),
+    hub.remove(registration.name, { machine: registration.machine, ownerPid: registration.ownerPid }).pipe(
+      Effect.flatMap(() => frpc.remove(registration.name)),
       Effect.andThen(Effect.log(`removed ${registration.name}: ${why}`)),
+      Effect.catchTag("Refused", ({ reason }) => Effect.log(`kept ${registration.name}: ${reason}`)),
     );
 
   const tick = Effect.gen(function* () {
@@ -70,12 +71,13 @@ export const runAgent = Effect.gen(function* () {
     const next = names(answered) === names(previous) ? answered : yield* reportOn(answered);
     yield* Ref.set(assigned, next);
     const now = yield* Clock.currentTimeMillis;
+    const present = new Set(routes);
     for (const registration of next) {
       if (isExpired(registration, now)) {
         yield* cleanUp(registration, "its registration expired");
       } else if ((yield* ownerSeen(registration.ownerPid)) === "ended") {
         yield* cleanUp(registration, `its owner, process ${registration.ownerPid}, ended`);
-      } else {
+      } else if (!present.has(registration.name)) {
         yield* frpc.ensure({ name: registration.name, port: registration.port, kind: "app" });
       }
     }

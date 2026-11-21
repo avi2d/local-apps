@@ -83,7 +83,7 @@ const list = Command.make(
     if (json) return yield* Console.log(JSON.stringify({ apps }));
     yield* Console.log(apps.length === 0 ? "no apps registered" : table(apps));
   }, Effect.provide(hubLayer), plainly),
-).pipe(Command.withDescription("Print every registered app with its owner, route and health"), Command.withAlias("ls"));
+).pipe(Command.withDescription("Print every registered app with its owner, route and health"));
 
 const remove = Command.make(
   "remove",
@@ -102,7 +102,7 @@ const remove = Command.make(
     }
     yield* Console.log(`removed ${app}; the agent on ${removed.value.machine} takes its route down`);
   }, Effect.provide([hubLayer, frpcLayer]), plainly),
-).pipe(Command.withDescription("Take an app off the list and take its route down"), Command.withAlias("rm"));
+).pipe(Command.withDescription("Take an app off the list and take its route down"));
 
 const hub = Command.make("hub", {}, () => serveHub.pipe(Effect.provide(frpcLayer), plainly)).pipe(
   Command.withDescription("Run the registry on this machine, reached through the gateway as hub.<domain>"),

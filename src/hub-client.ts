@@ -15,7 +15,10 @@ export class Hub extends Context.Service<
   {
     register(registration: Registration): Effect.Effect<AppView, HubError | Refused>;
     readonly list: Effect.Effect<AppList, HubError>;
-    remove(name: string): Effect.Effect<Option.Option<Registration>, HubError>;
+    remove(
+      name: string,
+      expected?: { readonly machine: string; readonly ownerPid: number },
+    ): Effect.Effect<Option.Option<Registration>, HubError | Refused>;
     report(machine: string, report: MachineReport): Effect.Effect<ReadonlyArray<Registration>, HubError>;
   }
 >()("local-apps/Hub") {
@@ -62,13 +65,20 @@ export class Hub extends Context.Service<
         return yield* HttpClientResponse.schemaBodyJson(AppList)(response).pipe(Effect.mapError(failed("list apps")));
       });
 
-      const remove = Effect.fn("Hub.remove")(function* (name: string) {
-        const action = `remove ${name}`;
-        const response = yield* client.del(`/apps/${encodeURIComponent(name)}`).pipe(Effect.mapError(failed(action)));
-        if (response.status === 404) return Option.none<Registration>();
-        if (response.status !== 200) return yield* unexpected(action, response);
-        return Option.some(yield* HttpClientResponse.schemaBodyJson(Registration)(response).pipe(Effect.mapError(failed(action))));
-      });
+      const remove = Effect.fn("Hub.remove")(
+        function* (name: string, expected?: { readonly machine: string; readonly ownerPid: number }) {
+          const action = `remove ${name}`;
+          const target =
+            expected === undefined
+              ? `/apps/${encodeURIComponent(name)}`
+              : `/apps/${encodeURIComponent(name)}?machine=${encodeURIComponent(expected.machine)}&ownerPid=${expected.ownerPid}`;
+          const response = yield* client.del(target).pipe(Effect.mapError(failed(action)));
+          if (response.status === 404) return Option.none<Registration>();
+          if (response.status === 409) return yield* reasonOf(response).pipe(Effect.flatMap((reason) => new Refused({ reason })));
+          if (response.status !== 200) return yield* unexpected(action, response);
+          return Option.some(yield* HttpClientResponse.schemaBodyJson(Registration)(response).pipe(Effect.mapError(failed(action))));
+        },
+      );
 
       const report = Effect.fn("Hub.report")(function* (machine: string, machineReport: MachineReport) {
         const action = `report for ${machine}`;

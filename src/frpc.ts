@@ -89,7 +89,9 @@ export class Frpc extends Context.Service<
         Effect.flatMap(HttpClientResponse.filterStatusOk),
         Effect.flatMap(HttpClientResponse.schemaBodyJson(StoreList)),
         Effect.map(({ proxies }) =>
-          proxies.filter((proxy) => proxy.http?.metadatas?.[owner] === "app").map((proxy) => appOf(proxy.name)),
+          proxies
+            .filter((proxy) => proxy.name.startsWith("la-") && proxy.http?.metadatas?.[owner] === "app")
+            .map((proxy) => appOf(proxy.name)),
         ),
         Effect.mapError(failed("list proxies")),
       );
@@ -101,7 +103,7 @@ export class Frpc extends Context.Service<
           new Set(
             Object.values(byType)
               .flat()
-              .filter((proxy) => proxy.status === "running")
+              .filter((proxy) => proxy.status === "running" && proxy.name.startsWith("la-"))
               .map((proxy) => appOf(proxy.name)),
           ),
         ),

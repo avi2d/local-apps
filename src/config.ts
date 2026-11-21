@@ -1,3 +1,5 @@
+import * as os from "node:os";
+import * as path from "node:path";
 import { Config } from "effect";
 
 export const machineName = Config.NonEmptyString("LOCAL_APPS_MACHINE");
@@ -16,5 +18,7 @@ export const frpcSettings = Config.all({
 
 export const serverSettings = Config.all({
   port: Config.Port("LOCAL_APPS_HUB_PORT").pipe(Config.withDefault(7600)),
-  stateFile: Config.NonEmptyString("LOCAL_APPS_HUB_STATE").pipe(Config.withDefault("local-apps-registry.json")),
+  stateFile: Config.NonEmptyString("LOCAL_APPS_HUB_STATE").pipe(
+    Config.withDefault(path.join(os.homedir(), ".local", "state", "local-apps", "registry.json")),
+  ),
 });

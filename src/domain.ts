@@ -59,7 +59,6 @@ export interface MachineSeen {
 export const isExpired = (registration: Registration, now: number): boolean =>
   registration.expiresAt !== undefined && now >= registration.expiresAt;
 
-// A machine silent for longer than staleAfterMs shows unknown, never its last good answer.
 export const viewOf = (
   registration: Registration,
   seen: MachineSeen | undefined,
