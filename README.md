@@ -39,7 +39,8 @@ Add `--json` to print one JSON object instead of the table.
 ## Remove an app
 
 Run `local-apps remove notes` on any machine.
-The agent on the app's machine takes its route down, and a second `remove` of the same name changes nothing.
+On the app's own machine the command also takes its route down at once, and otherwise the agent on that machine sweeps it.
+A second `remove` of the same name changes nothing.
 
 ## Check a change
 
@@ -58,6 +59,7 @@ The workflows under `.github/workflows/` run the same scripts on every pull requ
 | `src/index.ts` | The `local-apps` command and its subcommands |
 | `src/domain.ts` | The rules for names, ports and states |
 | `src/hub-server.ts` | The registry that `local-apps hub` serves |
+| `src/hub-client.ts` | The registry client the command and the agent share |
 | `src/agent.ts` | The agent that `local-apps agent` runs on each machine |
 | `src/frpc.ts` | The client of the frpc admin API |
 | `src/config.ts` | Every setting, read from the environment, with its default |

@@ -12,7 +12,7 @@ import {
   hubName,
   type MachineSeen,
   MachineReport,
-  type Refused,
+  Refused,
   Registration,
   viewOf,
 } from "./domain";
@@ -20,6 +20,10 @@ import {
 const staleAfterMs = 15_000;
 
 class RegistryError extends Schema.TaggedError<RegistryError>()("RegistryError", {
+  message: Schema.String,
+}) {}
+
+class OwnerQueryError extends Schema.TaggedError<OwnerQueryError>()("OwnerQueryError", {
   message: Schema.String,
 }) {}
 
@@ -96,7 +100,7 @@ class Registry extends Context.Service<
 
       const remove = Effect.fn("Registry.remove")(
         function* (name: string, expected?: { readonly machine: string; readonly ownerPid: number }) {
-          return yield* SynchronizedRef.modifyEffect(entries, (current) => {
+          return yield* SynchronizedRef.modifyEffect(entries, (current): Effect.Effect<readonly [Option.Option<Registration>, ReadonlyArray<Registration>], Refused | RegistryError> => {
             const found = current.find((entry) => entry.name === name);
             if (found === undefined) return Effect.succeed([Option.none<Registration>(), current] as const);
             if (expected !== undefined && (found.machine !== expected.machine || found.ownerPid !== expected.ownerPid)) {
@@ -181,14 +185,14 @@ const routes = Layer.unwrap(
         guarded(
           token,
           Effect.all([HttpRouter.params, HttpServerRequest.schemaSearchParams(OwnerQuery)]).pipe(
-            Effect.flatMap(([{ name }, query]) => {
+            Effect.flatMap(([{ name }, query]): Effect.Effect<Option.Option<Registration>, Refused | RegistryError | OwnerQueryError> => {
               if (query.machine === undefined && query.ownerPid === undefined) return registry.remove(name ?? "");
               if (query.machine === undefined || query.ownerPid === undefined) {
-                return Effect.fail(new Error("send both machine and ownerPid, or neither"));
+                return Effect.fail(new OwnerQueryError({ message: "send both machine and ownerPid, or neither" }));
               }
               const ownerPid = Number(query.ownerPid);
               if (!Number.isInteger(ownerPid) || ownerPid <= 0) {
-                return Effect.fail(new Error("ownerPid is not a positive integer"));
+                return Effect.fail(new OwnerQueryError({ message: "ownerPid is not a positive integer" }));
               }
               return registry.remove(name ?? "", { machine: query.machine, ownerPid });
             }),
