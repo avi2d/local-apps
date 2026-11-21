@@ -1,6 +1,5 @@
-import * as Path from "node:path";
 import { BunHttpServer } from "@effect/platform-bun";
-import { Clock, Context, Effect, FileSystem, Layer, Option, Redacted, Ref, Result, Schedule, Schema, SynchronizedRef } from "effect";
+import { Clock, Context, Effect, FileSystem, Layer, Option, Path, Redacted, Ref, Result, Schedule, Schema, SynchronizedRef } from "effect";
 import { HttpRouter, HttpServerRequest, HttpServerResponse } from "effect/http";
 import { domain as domainSetting, gateway as gatewaySetting, hubSettings, serverSettings } from "./config";
 import { Frpc } from "./frpc";
@@ -51,6 +50,7 @@ class Registry extends Context.Service<
     Registry,
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
       const { stateFile } = yield* serverSettings;
       const gateway = yield* gatewaySetting;
       const domain = yield* domainSetting;
@@ -64,7 +64,7 @@ class Registry extends Context.Service<
       const seen = yield* Ref.make<ReadonlyMap<string, MachineSeen>>(new Map());
 
       const save = (next: ReadonlyArray<Registration>) =>
-        fs.makeDirectory(Path.dirname(stateFile), { recursive: true }).pipe(
+        fs.makeDirectory(path.dirname(stateFile), { recursive: true }).pipe(
           Effect.andThen(fs.writeFileString(`${stateFile}.tmp`, `${JSON.stringify(next, null, 2)}\n`)),
           Effect.andThen(fs.rename(`${stateFile}.tmp`, stateFile)),
           Effect.mapError(failed("write")),
