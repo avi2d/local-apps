@@ -70,6 +70,7 @@ The admin API listens on loopback only and asks for the admin password.
 To run the registry on one machine that runs frpc:
 
 1. Set `LOCAL_APPS_TOKEN` to the registry token and `LOCAL_APPS_FRPC_PASSWORD` to the frpc admin password.
+1. Set `LOCAL_APPS_GATEWAY` and `LOCAL_APPS_DOMAIN` to the same values the agents use, so the list prints the right addresses.
 1. Run `local-apps hub` and keep it running.
 
 The registry keeps its list in `~/.local/state/local-apps/registry.json`.
