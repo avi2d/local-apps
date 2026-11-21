@@ -1,0 +1,25 @@
+{
+  "name": "@avi2dg/local-apps",
+  "version": "0.0.0",
+  "description": "One list of locally running apps across your machines: name, machine, port, owner, liveness and cleanup",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/avi2d/local-apps.git"
+  },
+  "author": "avi2d <avi2dg@gmail.com>",
+  "type": "module",
+  "devDependencies": {
+    "@avi2dg/checks": "0.111.0",
+    "@hughescr/stryker-bun-runner": "1.4.0",
+    "@stryker-mutator/core": "10.0.0",
+    "@types/bun": "^1.4.5"
+  },
+  "scripts": {
+    "build": "checks-effect-scope",
+    "lint": "oxlint && checks-lint",
+    "typecheck": "tsc --noEmit && effect-tsgo diagnostics --project tsconfig.json --format text --strict",
+    "test": "checks-test",
+    "test:fast": "checks-test --changed"
+  }
+}
