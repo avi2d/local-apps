@@ -26,7 +26,6 @@ export class Hub extends Context.Service<
     Hub,
     Effect.gen(function* () {
       const { gateway, domain, token } = yield* hubSettings;
-      // Every machine reaches the registry the same way: through the frp gateway, by its host name.
       const client = (yield* HttpClient.HttpClient).pipe(
         HttpClient.mapRequest(
           flow(

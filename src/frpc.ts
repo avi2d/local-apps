@@ -18,7 +18,10 @@ const StoreList = Schema.Struct({
     Schema.Struct({
       name: Schema.String,
       http: Schema.optionalKey(
-        Schema.Struct({ metadatas: Schema.optionalKey(Schema.Record(Schema.String, Schema.String)) }),
+        Schema.Struct({
+          localPort: Schema.optionalKey(Schema.Number),
+          metadatas: Schema.optionalKey(Schema.Record(Schema.String, Schema.String)),
+        }),
       ),
     }),
   ),
@@ -31,7 +34,7 @@ export class Frpc extends Context.Service<
   {
     ensure(route: { readonly name: string; readonly port: number; readonly kind: RouteKind }): Effect.Effect<void, FrpcError>;
     remove(name: string): Effect.Effect<void, FrpcError>;
-    readonly appRoutes: Effect.Effect<ReadonlyArray<string>, FrpcError>;
+    readonly appRoutes: Effect.Effect<ReadonlyArray<{ readonly name: string; readonly port: number | undefined }>, FrpcError>;
     readonly running: Effect.Effect<ReadonlySet<string>, FrpcError>;
   }
 >()("local-apps/Frpc") {
@@ -91,7 +94,7 @@ export class Frpc extends Context.Service<
         Effect.map(({ proxies }) =>
           proxies
             .filter((proxy) => proxy.name.startsWith("la-") && proxy.http?.metadatas?.[owner] === "app")
-            .map((proxy) => appOf(proxy.name)),
+            .map((proxy) => ({ name: appOf(proxy.name), port: proxy.http?.localPort })),
         ),
         Effect.mapError(failed("list proxies")),
       );

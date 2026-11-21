@@ -71,20 +71,20 @@ export const runAgent = Effect.gen(function* () {
     const next = names(answered) === names(previous) ? answered : yield* reportOn(answered);
     yield* Ref.set(assigned, next);
     const now = yield* Clock.currentTimeMillis;
-    const present = new Set(routes);
+    const present = new Map(routes.map((route) => [route.name, route.port] as const));
     for (const registration of next) {
       if (isExpired(registration, now)) {
         yield* cleanUp(registration, "its registration expired");
       } else if ((yield* ownerSeen(registration.ownerPid)) === "ended") {
         yield* cleanUp(registration, `its owner, process ${registration.ownerPid}, ended`);
-      } else if (!present.has(registration.name)) {
+      } else if (present.get(registration.name) !== registration.port) {
         yield* frpc.ensure({ name: registration.name, port: registration.port, kind: "app" });
       }
     }
     const kept = new Set(next.map((registration) => registration.name));
-    for (const orphan of routes.filter((route) => !kept.has(route))) {
-      yield* frpc.remove(orphan);
-      yield* Effect.log(`removed the route of ${orphan}: the registry no longer lists it`);
+    for (const orphan of routes.filter((route) => !kept.has(route.name))) {
+      yield* frpc.remove(orphan.name);
+      yield* Effect.log(`removed the route of ${orphan.name}: the registry no longer lists it`);
     }
   });
 

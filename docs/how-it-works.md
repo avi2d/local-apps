@@ -31,7 +31,8 @@ A machine that has not reported for 15 seconds shows `unknown` in all three stat
 ## Cleanup when an owner ends
 
 The agent checks each owner process on every report.
-When the owner has ended or the entry has expired, the agent removes the route from frpc and then the entry from the registry.
+When the owner has ended or the entry has expired, the agent removes the entry from the registry first, conditional on the machine and the owner pid, and then removes the route from frpc.
+A name the registry now holds for a different owner is kept, and its route is left alone.
 A route that is already gone counts as removed, so a cleanup that stops halfway finishes on the next report.
 While a machine cannot reach the registry, its entries show `unknown`, and its cleanup runs once the link is back.
 The agent also removes a route it made whose app the registry no longer lists, such as after `local-apps remove` on another machine.
