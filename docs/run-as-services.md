@@ -3,7 +3,8 @@ kind: how-to
 ---
 # Run local-apps as services
 
-Do this on each machine after [Set up the gateway](set-up-the-gateway.md), so frps, frpc, the registry and the agent start with the machine and start again when they stop.
+Do this on each machine after [Set up the gateway](set-up-the-gateway.md).
+frps, frpc, the registry and the agent then start with the machine, and start again when they stop.
 macOS runs them as launchd agents of your user, and Linux runs them as systemd units of your user.
 Neither needs root, and no service file holds a secret, since the secrets stay in the files under `~/.config/local-apps/`.
 
@@ -50,11 +51,15 @@ To run them under launchd:
 1. Write `local-apps.frpc.plist` the same way, with `frpc`, `-c` and the path of `frpc.toml` as its program arguments.
 1. On the gateway machine, write `local-apps.frps.plist` with `frps`, `-c` and the path of `frps.toml`.
 1. On the registry machine, write `local-apps.hub.plist` with bun, `src/index.ts` and `hub`.
+1. When you [reach the gateway over ssh](set-up-the-gateway.md#reach-the-gateway-over-ssh), write `local-apps.tunnel.plist` with `/usr/bin/ssh`, `-o BatchMode=yes` and the tunnel's arguments, one per string, for each other machine.
 1. Run `mkdir -p ~/Library/Logs/local-apps`.
 1. Run `plutil -lint` on each file, then `launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/local-apps.agent.plist` for each.
 
 `launchctl print gui/$(id -u)/local-apps.agent` shows whether a service runs and its last exit status.
-A launchd agent of your user starts when you log in, so a Mac that serves other machines after a restart needs automatic login or a login after each restart.
+launchd starts the tunnel again when it drops, after the 10 seconds `ThrottleInterval` sets.
+The ssh key for the tunnel has to work without a prompt, such as from an agent launchd services can reach.
+A launchd agent of your user starts when you log in.
+A Mac that serves other machines therefore needs automatic login, or a login after each restart.
 
 The macOS application firewall asks once whether frps may accept incoming connections.
 Allow it, or run `sudo /usr/libexec/ApplicationFirewall/socketfilterfw --add` and `--unblockapp` with the path of `frps`.

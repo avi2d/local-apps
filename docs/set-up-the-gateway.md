@@ -11,6 +11,7 @@ One machine runs the frp server, one runs the registry, and every machine runs f
 - A private network that every machine reaches, such as a VPN, and the gateway machine's address on it.
   The examples use 192.0.2.10.
   The gateway machine needs an address that does not change, because frps listens on that address only.
+  Without such a network, [reach the gateway over ssh](#reach-the-gateway-over-ssh) instead.
 - The `local-apps` command on every machine, installed as the [README](../README.md#install) says.
 - `openssl` on every machine, to make the secrets.
 
@@ -35,9 +36,11 @@ Four secrets keep the gateway private:
 
 To make them:
 
-1. On the gateway machine, run `openssl rand -hex 32` once for each of the frp token, the dashboard password and the registry token, and write each straight into its file.
+1. On the gateway machine, run `openssl rand -hex 32` for the frp token, the dashboard password and the registry token.
+   Write each output straight into its file rather than to the terminal.
 1. On each machine, run `openssl rand -hex 32` for that machine's own frpc admin password.
-1. Copy the frp token and the registry token to each other machine over ssh, such as by piping them into a script that `ssh` runs there, so they pass through no other host.
+1. Copy the frp token and the registry token to each other machine over ssh, so they pass through no other host.
+   Pipe them into a script that `ssh` runs there, rather than putting them in a command line.
 1. Run `chmod 600` on every file that holds a secret, and `chmod 700` on its directory.
 
 ## Run the frp server
@@ -75,6 +78,7 @@ To run frpc on a machine:
    serverAddr = "192.0.2.10"
    serverPort = 7100
    loginFailExit = false
+   log.level = "warn"
    auth.method = "token"
    auth.token = "<frp token>"
    transport.tls.enable = true
@@ -92,6 +96,21 @@ To run frpc on a machine:
 The `[store]` table turns on the admin API that `local-apps` uses to create and remove routes while frpc runs.
 The admin API listens on loopback only and asks for the admin password.
 `loginFailExit = false` keeps frpc retrying while the gateway is not up yet, such as just after a restart.
+`log.level = "warn"` keeps frpc from logging each admin request, which the agent makes every 5 seconds.
+
+## Reach the gateway over ssh
+
+When the machines share no private network, frps can listen on loopback only, and each other machine reaches it through an ssh tunnel from the gateway machine.
+Nothing then listens on any network.
+
+To set it up:
+
+1. On the gateway machine, write `127.0.0.1` for `bindAddr` and `proxyBindAddr` in `frps.toml`.
+1. On every machine, write `127.0.0.1` for `serverAddr` in `frpc.toml`, and `http://127.0.0.1:8090` for `LOCAL_APPS_GATEWAY` in the settings.
+1. On the gateway machine, run `ssh -N -o ExitOnForwardFailure=yes -o ServerAliveInterval=15 -R 127.0.0.1:7100:127.0.0.1:7100 -R 127.0.0.1:8090:127.0.0.1:8090 <other machine>` for each other machine, and keep it running.
+
+The tunnel carries frpc's link to frps and each request to an app or the registry.
+[Run local-apps as services](run-as-services.md) keeps the tunnel running.
 
 ## Write the settings
 
