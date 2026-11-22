@@ -8,17 +8,43 @@ One machine runs the frp server, one runs the registry, and every machine runs f
 
 ## Before you begin
 
-- frp v0.72.0 from its GitHub releases page, with the archive checked against the release's `frp_sha256_checksums.txt`.
 - A private network that every machine reaches, such as a VPN, and the gateway machine's address on it.
   The examples use 192.0.2.10.
-- Four random secrets: the frp token, the dashboard password, the frpc admin password and the registry token.
-  `openssl rand -hex 32` prints one.
+  The gateway machine needs an address that does not change, because frps listens on that address only.
+- The `local-apps` command on every machine, installed as the [README](../README.md#install) says.
+- `openssl` on every machine, to make the secrets.
+
+## Install frp
+
+To install frp v0.72.0 on a machine:
+
+1. Download the archive for the machine, such as `frp_0.72.0_darwin_arm64.tar.gz` or `frp_0.72.0_linux_amd64.tar.gz`, and `frp_sha256_checksums.txt` from the v0.72.0 page of the frp GitHub releases.
+1. Run `grep frp_0.72.0_linux_amd64.tar.gz frp_sha256_checksums.txt | shasum -a 256 -c -` with the name of your archive, and go on only when it prints `OK`.
+1. Unpack `frpc`, and `frps` on the gateway machine, into a directory of your own, such as `~/.local/opt/frp/0.72.0`.
+
+## Make the secrets
+
+Four secrets keep the gateway private:
+
+| Secret | Where it goes |
+| --- | --- |
+| The frp token | `frps.toml` and every `frpc.toml` |
+| The dashboard password | `frps.toml` |
+| The frpc admin password | `frpc.toml` and `settings.env` on the same machine |
+| The registry token | `settings.env` on every machine |
+
+To make them:
+
+1. On the gateway machine, run `openssl rand -hex 32` once for each of the frp token, the dashboard password and the registry token, and write each straight into its file.
+1. On each machine, run `openssl rand -hex 32` for that machine's own frpc admin password.
+1. Copy the frp token and the registry token to each other machine over ssh, such as by piping them into a script that `ssh` runs there, so they pass through no other host.
+1. Run `chmod 600` on every file that holds a secret, and `chmod 700` on its directory.
 
 ## Run the frp server
 
 To run frps on the gateway machine:
 
-1. Write `frps.toml`:
+1. Write `~/.config/local-apps/frps.toml`:
 
    ```toml
    bindAddr = "192.0.2.10"
@@ -34,7 +60,7 @@ To run frps on the gateway machine:
    webServer.password = "<dashboard password>"
    ```
 
-1. Run `frps -c frps.toml`.
+1. Run `frps -c ~/.config/local-apps/frps.toml`.
 
 frps listens for clients and for app traffic on the private address only, and serves its dashboard on loopback only.
 It refuses a client without the frp token or without TLS.
@@ -43,11 +69,12 @@ It refuses a client without the frp token or without TLS.
 
 To run frpc on a machine:
 
-1. Write `frpc.toml`:
+1. Write `~/.config/local-apps/frpc.toml`, with the full path of your home directory in place of `/home/you`:
 
    ```toml
    serverAddr = "192.0.2.10"
    serverPort = 7100
+   loginFailExit = false
    auth.method = "token"
    auth.token = "<frp token>"
    transport.tls.enable = true
@@ -57,20 +84,42 @@ To run frpc on a machine:
    webServer.password = "<frpc admin password>"
 
    [store]
-   path = "/var/lib/local-apps/frpc-store.json"
+   path = "/home/you/.local/state/local-apps/frpc-store.json"
    ```
 
-1. Run `frpc -c frpc.toml`.
+1. Run `frpc -c ~/.config/local-apps/frpc.toml`.
 
 The `[store]` table turns on the admin API that `local-apps` uses to create and remove routes while frpc runs.
 The admin API listens on loopback only and asks for the admin password.
+`loginFailExit = false` keeps frpc retrying while the gateway is not up yet, such as just after a restart.
+
+## Write the settings
+
+The command, the agent and the registry read their settings from the environment first, and then from `~/.config/local-apps/settings.env`.
+Set `LOCAL_APPS_SETTINGS` to read another file.
+
+To write the settings on a machine:
+
+1. Write `~/.config/local-apps/settings.env`:
+
+   ```sh
+   LOCAL_APPS_MACHINE=laptop
+   LOCAL_APPS_GATEWAY=http://192.0.2.10:8090
+   LOCAL_APPS_TOKEN=<registry token>
+   LOCAL_APPS_FRPC_PASSWORD=<frpc admin password of this machine>
+   ```
+
+1. Run `chmod 600 ~/.config/local-apps/settings.env`.
+
+`LOCAL_APPS_MACHINE` names this machine, and each machine takes a name of its own.
+Set `LOCAL_APPS_FRPC_ADMIN` when frpc's admin API listens on a port other than 7400.
+`src/config.ts` holds every setting and its default.
 
 ## Run the registry
 
 To run the registry on one machine that runs frpc:
 
-1. Set `LOCAL_APPS_TOKEN` to the registry token and `LOCAL_APPS_FRPC_PASSWORD` to the frpc admin password.
-1. Set `LOCAL_APPS_GATEWAY` and `LOCAL_APPS_DOMAIN` to the same values the agents use, so the list prints the right addresses.
+1. Write the settings on that machine.
 1. Run `local-apps hub` and keep it running.
 
 The registry keeps its list in `~/.local/state/local-apps/registry.json`.
@@ -83,13 +132,11 @@ Every request to it needs the registry token.
 
 To run the agent on a machine:
 
-1. Set `LOCAL_APPS_MACHINE` to a name for this machine, such as `laptop`.
-1. Set `LOCAL_APPS_TOKEN` and `LOCAL_APPS_FRPC_PASSWORD` as for the registry.
-1. Set `LOCAL_APPS_GATEWAY` to the gateway, such as `http://192.0.2.10:8090`.
+1. Write the settings on that machine.
 1. Run `local-apps agent` and keep it running.
 
 `register`, `list` and `remove` read the same settings on that machine.
-`src/config.ts` holds every setting and its default.
+To start frps, frpc, the registry and the agent with the machine, follow [Run local-apps as services](run-as-services.md).
 
 ## Open an app in a browser
 
@@ -102,15 +149,21 @@ The `local-apps` command names the registry by its host header, so the command i
 
 ### a setting is missing or wrong: Expected string at ["LOCAL_APPS_TOKEN"]
 
-The command ran without the registry token.
-Set `LOCAL_APPS_TOKEN` as [Run the agent on each machine](#run-the-agent-on-each-machine) says.
+The command found no registry token in the environment or in the settings file.
+Write the settings as [Write the settings](#write-the-settings) says.
 
 ### registry: cannot list apps: missing or wrong bearer token
 
 The token on this machine differs from the token the registry runs with.
 Set `LOCAL_APPS_TOKEN` to the registry token.
 
+### frps: bind: can't assign requested address
+
+The gateway machine does not hold the address in `bindAddr`, such as while its VPN is down or after its address changed.
+Give the gateway machine a fixed address on the private network, and frps starts once the address is back.
+
 ## Related topics
 
+- [Run local-apps as services](run-as-services.md)
 - [How local-apps keeps its list true](how-it-works.md)
 - [README](../README.md)
