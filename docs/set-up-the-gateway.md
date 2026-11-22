@@ -39,7 +39,7 @@ To make them:
 1. On the gateway machine, run `openssl rand -hex 32` for the frp token, the dashboard password and the registry token.
    Write each output straight into its file rather than to the terminal.
 1. On each machine, run `openssl rand -hex 32` for that machine's own frpc admin password.
-1. Copy the frp token and the registry token to each other machine over ssh, so they pass through no other host.
+1. Copy the frp token and the registry token to each other machine over ssh, so no other host sees them.
    Pipe them into a script that `ssh` runs there, rather than putting them in a command line.
 1. Run `chmod 600` on every file that holds a secret, and `chmod 700` on its directory.
 
@@ -100,7 +100,8 @@ The admin API listens on loopback only and asks for the admin password.
 
 ## Reach the gateway over ssh
 
-When the machines share no private network, frps can listen on loopback only, and each other machine reaches it through an ssh tunnel from the gateway machine.
+When the machines share no private network, frps can listen on loopback only.
+Each other machine then reaches it through an ssh tunnel from the gateway machine.
 Nothing then listens on any network.
 
 To set it up:
