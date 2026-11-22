@@ -1,13 +1,17 @@
 import { describe, expect, test } from "bun:test";
+import { homedir } from "node:os";
+import { join } from "node:path";
 import { Config, ConfigProvider, Effect, FileSystem, Layer, Option, Redacted } from "effect";
 import { machineName, settingsFileLayer } from "../../src/config";
 
+const settingsPath = join(homedir(), ".config", "local-apps", "settings.env");
+
 const withSettings = (environment: Record<string, string>, file: string | undefined) =>
   settingsFileLayer.pipe(
-    Layer.provide(ConfigProvider.layer(ConfigProvider.fromUnknown({ LOCAL_APPS_SETTINGS: "/settings.env", ...environment }))),
+    Layer.provide(ConfigProvider.layer(ConfigProvider.fromUnknown(environment))),
     Layer.provide(
       FileSystem.layerNoop({
-        exists: (path) => Effect.succeed(file !== undefined && path === "/settings.env"),
+        exists: (path) => Effect.succeed(file !== undefined && path === settingsPath),
         readFileString: () => Effect.succeed(file ?? ""),
       }),
     ),

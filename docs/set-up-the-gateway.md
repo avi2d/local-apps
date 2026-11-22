@@ -11,7 +11,7 @@ One machine runs the frp server, one runs the registry, and every machine runs f
 - A private network that every machine reaches, such as a VPN, and the gateway machine's address on it.
   The examples use 192.0.2.10.
   The gateway machine needs an address that does not change, because frps listens on that address only.
-  Without such a network, [reach the gateway over ssh](#reach-the-gateway-over-ssh) instead.
+  When that address is unavailable, [reach the gateway over ssh](#reach-the-gateway-over-ssh) instead.
 - The `local-apps` command on every machine, installed as the [README](../README.md#install) says.
 - `openssl` on every machine, to make the secrets.
 
@@ -100,9 +100,9 @@ The admin API listens on loopback only and asks for the admin password.
 
 ## Reach the gateway over ssh
 
-When the machines share no private network, frps can listen on loopback only.
-Each other machine then reaches it through an ssh tunnel from the gateway machine.
-Nothing then listens on any network.
+Use the gateway machine's VPN address when you can.
+When that address is unavailable, each other machine reaches frps through an ssh tunnel from the gateway machine instead.
+frps then listens on loopback only, and each other machine runs sshd to accept the tunnel.
 
 To set it up:
 
@@ -116,7 +116,6 @@ The tunnel carries frpc's link to frps and each request to an app or the registr
 ## Write the settings
 
 The command, the agent and the registry read their settings from the environment first, and then from `~/.config/local-apps/settings.env`.
-Set `LOCAL_APPS_SETTINGS` to read another file.
 
 To write the settings on a machine:
 

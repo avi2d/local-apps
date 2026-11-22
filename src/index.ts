@@ -115,10 +115,9 @@ const agent = Command.make("agent", {}, () => runAgent.pipe(Effect.provide([hubL
 const localApps = Command.make("local-apps").pipe(
   Command.withDescription("One list of the apps running on your machines, routed through a private frp gateway"),
   Command.withSubcommands([register, list, remove, hub, agent]),
-);
-
-BunRuntime.runMain(
-  Command.run(localApps, { version: packageJson.version }).pipe(
-    Effect.provide(settingsFileLayer.pipe(Layer.provideMerge(BunServices.layer))),
+  Command.provide(
+    settingsFileLayer.pipe(Layer.catchTag("SettingsFileError", ({ message }) => Layer.effectDiscard(Effect.fail(userError(message))))),
   ),
 );
+
+BunRuntime.runMain(Command.run(localApps, { version: packageJson.version }).pipe(Effect.provide(BunServices.layer)));

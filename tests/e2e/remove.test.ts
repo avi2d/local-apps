@@ -1,10 +1,14 @@
 import { expect, test } from "bun:test";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 const removeWith = async (body: string) => {
   const server = Bun.serve({ port: 0, fetch: () => new Response(body, { status: 404 }) });
+  const home = mkdtempSync(join(tmpdir(), "local-apps-home-"));
   try {
     const process = Bun.spawn(["bun", "src/index.ts", "remove", "notes"], {
-      env: { ...Bun.env, LOCAL_APPS_GATEWAY: server.url.origin, LOCAL_APPS_TOKEN: "test", LOCAL_APPS_FRPC_PASSWORD: "test" },
+      env: { ...Bun.env, HOME: home, LOCAL_APPS_GATEWAY: server.url.origin, LOCAL_APPS_TOKEN: "test", LOCAL_APPS_FRPC_PASSWORD: "test" },
       stdout: "pipe",
       stderr: "pipe",
     });
@@ -16,6 +20,7 @@ const removeWith = async (body: string) => {
     return { exitCode, output: stdout + stderr };
   } finally {
     await server.stop(true);
+    rmSync(home, { recursive: true, force: true });
   }
 };
 

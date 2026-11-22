@@ -19,19 +19,16 @@ class SettingsFileError extends Schema.TaggedError<SettingsFileError>()("Setting
   message: Schema.String,
 }) {}
 
-const settingsFile = Config.NonEmptyString("LOCAL_APPS_SETTINGS").pipe(
-  Config.withDefault(`${os.homedir()}/.config/local-apps/settings.env`),
-);
+const settingsFile = `${os.homedir()}/.config/local-apps/settings.env`;
 
-// The environment wins over the file, and a missing file adds no settings.
+// The environment wins over the file.
 export const settingsFileLayer = ConfigProvider.layerAdd(
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
-    const path = yield* settingsFile;
     const unreadable = (cause: { readonly message: string }) =>
-      new SettingsFileError({ message: `cannot read the settings file ${path}: ${cause.message}` });
-    if (!(yield* fs.exists(path).pipe(Effect.mapError(unreadable)))) return ConfigProvider.fromUnknown({});
-    return yield* ConfigProvider.fromDotEnv({ path }).pipe(Effect.mapError(unreadable));
+      new SettingsFileError({ message: `cannot read the settings file ${settingsFile}: ${cause.message}` });
+    if (!(yield* fs.exists(settingsFile).pipe(Effect.mapError(unreadable)))) return ConfigProvider.fromUnknown({});
+    return yield* ConfigProvider.fromDotEnv({ path: settingsFile }).pipe(Effect.mapError(unreadable));
   }),
 );
 

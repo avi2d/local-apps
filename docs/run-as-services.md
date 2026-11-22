@@ -51,7 +51,8 @@ To run them under launchd:
 1. Write `local-apps.frpc.plist` the same way, with `frpc`, `-c` and the path of `frpc.toml` as its program arguments.
 1. On the gateway machine, write `local-apps.frps.plist` with `frps`, `-c` and the path of `frps.toml`.
 1. On the registry machine, write `local-apps.hub.plist` with bun, `src/index.ts` and `hub`.
-1. When you [reach the gateway over ssh](set-up-the-gateway.md#reach-the-gateway-over-ssh), write `local-apps.tunnel.plist` with `/usr/bin/ssh`, `-o BatchMode=yes` and the tunnel's arguments, one per string, for each other machine.
+1. When you [reach the gateway over ssh](set-up-the-gateway.md#reach-the-gateway-over-ssh), write `local-apps.tunnel.<machine>.plist` for each other machine, with the label `local-apps.tunnel.<machine>` and `/usr/bin/ssh`, `-o BatchMode=yes` and the tunnel's arguments, one per string.
+   `<machine>` is the other machine's `LOCAL_APPS_MACHINE`, so each tunnel has its own label and file.
 1. Run `mkdir -p ~/Library/Logs/local-apps`.
 1. Run `plutil -lint` on each file, then `launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/local-apps.agent.plist` for each.
 
