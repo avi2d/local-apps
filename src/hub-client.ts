@@ -72,7 +72,11 @@ export class Hub extends Context.Service<
               ? `/apps/${encodeURIComponent(name)}`
               : `/apps/${encodeURIComponent(name)}?machine=${encodeURIComponent(expected.machine)}&ownerPid=${expected.ownerPid}`;
           const response = yield* client.del(target).pipe(Effect.mapError(failed(action)));
-          if (response.status === 404) return Option.none<Registration>();
+          if (response.status === 404) {
+            const reason = yield* reasonOf(response);
+            if (reason === "no app has that name") return Option.none<Registration>();
+            return yield* new HubError({ message: `registry: cannot ${action}: ${reason}` });
+          }
           if (response.status === 409) return yield* reasonOf(response).pipe(Effect.flatMap((reason) => new Refused({ reason })));
           if (response.status !== 200) return yield* unexpected(action, response);
           return Option.some(yield* HttpClientResponse.schemaBodyJson(Registration)(response).pipe(Effect.mapError(failed(action))));
