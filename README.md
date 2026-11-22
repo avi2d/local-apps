@@ -9,6 +9,7 @@ Any machine can register, list or remove an app with the `local-apps` command.
 
 - Bun, at the version `.bun-version` pins.
 - A frp gateway and frpc on each machine, set up as [Set up the gateway](docs/set-up-the-gateway.md) says.
+- The settings of each machine in `~/.config/local-apps/settings.env`, which [Write the settings](docs/set-up-the-gateway.md#write-the-settings) describes.
 
 ## Install
 
@@ -16,7 +17,8 @@ To install the `local-apps` command:
 
 1. Clone `https://github.com/avi2d/local-apps`.
 1. Run `bun install` in the clone.
-1. Run `bun link` in the clone to put `local-apps` on your path.
+1. Run `bun link` in the clone, which puts `local-apps` in `~/.bun/bin`.
+1. Put `~/.bun/bin` on your `PATH`, or link `~/.bun/bin/local-apps` into a directory already on it.
 
 `local-apps --version` prints the version `package.json` holds.
 
@@ -62,10 +64,11 @@ The workflows under `.github/workflows/` run the same scripts on every pull requ
 | `src/hub-client.ts` | The registry client the command and the agent share |
 | `src/agent.ts` | The agent that `local-apps agent` runs on each machine |
 | `src/frpc.ts` | The client of the frpc admin API |
-| `src/config.ts` | Every setting, read from the environment, with its default |
+| `src/config.ts` | Every setting, read from the environment and the settings file, with its default |
 | `tests/unit/` | The unit tests, which `bun run test` runs |
 
 ## Related topics
 
 - [Set up the gateway](docs/set-up-the-gateway.md)
+- [Run local-apps as services](docs/run-as-services.md)
 - [How local-apps keeps its list true](docs/how-it-works.md)

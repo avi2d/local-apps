@@ -5,7 +5,7 @@ import { Argument, CliError, Command, Flag } from "effect/cli";
 import { FetchHttpClient } from "effect/http";
 import packageJson from "../package.json";
 import { runAgent } from "./agent";
-import { machineName } from "./config";
+import { machineName, settingsFileLayer } from "./config";
 import { AppName, type AppView, Registration } from "./domain";
 import { Frpc } from "./frpc";
 import { Hub, HubError } from "./hub-client";
@@ -115,6 +115,9 @@ const agent = Command.make("agent", {}, () => runAgent.pipe(Effect.provide([hubL
 const localApps = Command.make("local-apps").pipe(
   Command.withDescription("One list of the apps running on your machines, routed through a private frp gateway"),
   Command.withSubcommands([register, list, remove, hub, agent]),
+  Command.provide(
+    settingsFileLayer.pipe(Layer.catchTag("SettingsFileError", ({ message }) => Layer.effectDiscard(Effect.fail(userError(message))))),
+  ),
 );
 
 BunRuntime.runMain(Command.run(localApps, { version: packageJson.version }).pipe(Effect.provide(BunServices.layer)));

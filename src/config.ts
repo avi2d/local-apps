@@ -1,5 +1,5 @@
 import * as os from "node:os";
-import { Config } from "effect";
+import { Config, ConfigProvider, Effect, FileSystem, Schema } from "effect";
 
 export const machineName = Config.NonEmptyString("LOCAL_APPS_MACHINE");
 
@@ -14,6 +14,23 @@ export const frpcSettings = Config.all({
   user: Config.NonEmptyString("LOCAL_APPS_FRPC_USER").pipe(Config.withDefault("admin")),
   password: Config.Redacted("LOCAL_APPS_FRPC_PASSWORD"),
 });
+
+class SettingsFileError extends Schema.TaggedError<SettingsFileError>()("SettingsFileError", {
+  message: Schema.String,
+}) {}
+
+const settingsFile = `${os.homedir()}/.config/local-apps/settings.env`;
+
+// The environment wins over the file.
+export const settingsFileLayer = ConfigProvider.layerAdd(
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const unreadable = (cause: { readonly message: string }) =>
+      new SettingsFileError({ message: `cannot read the settings file ${settingsFile}: ${cause.message}` });
+    if (!(yield* fs.exists(settingsFile).pipe(Effect.mapError(unreadable)))) return ConfigProvider.fromUnknown({});
+    return yield* ConfigProvider.fromDotEnv({ path: settingsFile }).pipe(Effect.mapError(unreadable));
+  }),
+);
 
 export const serverSettings = Config.all({
   port: Config.Port("LOCAL_APPS_HUB_PORT").pipe(Config.withDefault(7600)),
