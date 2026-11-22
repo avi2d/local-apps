@@ -19,7 +19,7 @@ const StoreList = Schema.Struct({
       name: Schema.String,
       http: Schema.optionalKey(
         Schema.Struct({
-          localPort: Schema.optionalKey(Schema.Number),
+          localPort: Schema.optionalKey(Schema.Finite),
           metadatas: Schema.optionalKey(Schema.Record(Schema.String, Schema.String)),
         }),
       ),
