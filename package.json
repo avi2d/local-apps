@@ -17,6 +17,7 @@
   },
   "scripts": {
     "build": "checks-effect-scope",
+    "build:binary": "bun build --compile --bytecode --format=esm --outfile dist/local-apps src/index.ts",
     "lint": "oxlint && checks-lint",
     "typecheck": "tsc --noEmit && effect-tsgo diagnostics --project tsconfig.json --format text --strict",
     "test": "checks-test",
