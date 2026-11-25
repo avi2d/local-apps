@@ -17,8 +17,10 @@ To install the `local-apps` command:
 
 1. Clone `https://github.com/avi2d/local-apps`.
 1. Run `bun install` in the clone.
-1. Run `bun link` in the clone, which puts `local-apps` in `~/.bun/bin`.
-1. Put `~/.bun/bin` on your `PATH`, or link `~/.bun/bin/local-apps` into a directory already on it.
+1. Run `bun run build:binary` in the clone to compile `dist/local-apps` with Bun bytecode.
+1. Copy `dist/local-apps` into a directory on your `PATH`.
+
+Build on the machine where you will run the command, on macOS arm64 or Linux x64.
 
 `local-apps --version` prints the version `package.json` holds.
 
